@@ -27,7 +27,21 @@ import time
 import urllib.error
 import urllib.request
 
-VERSIONE = "2026-10-20.4"  # aggiornarla a ogni modifica: si vede all'avvio e nel log
+VERSIONE = "1.1.1"  # aggiornarla a ogni modifica: si vede all'avvio di ogni comando
+RIGA = "*************"
+AIUTO = """programma per Termux su Android. Legge la bacheca ClasseViva, scarica le circolari nuove ed invia gli allegati per mail.
+%s
+Comandi:
+run (controlla e invia le circolari nuove),
+test (prova l'accesso e mostra le ultime circolari, non invia nulla),
+invio (imposta indirizzo e codice del ricevitore Apps Script),
+credenziali (reimposta utente e password ClasseViva),
+ultima (invia subito l'ultima circolare)
+diagnosi (mostra le ultime circolari con firma richiesta e stato di invio)
+recupera [NUMERI] (invia le circolari indicate - es. 251 252 - o quelle degli ultimi 3 giorni non ancora inviate se non indichi numeri),
+sms NUMERO (attiva l'SMS per ogni circolare nuova - sms off per disattivarlo)
+prova-avviso (manda una notifica - e un SMS se attivo - di prova)
+allegati NUMERO (prova a scaricare gli allegati di una circolare e mostra cosa risponde ClasseViva, non invia nulla)""" % RIGA
 DIR = os.path.expanduser("~/.classeviva")
 CONF = os.path.join(DIR, "config.json")
 STATO = os.path.join(DIR, "viste.json")
@@ -303,8 +317,7 @@ def cmd_run(conf):
         viste = {k: v for k, v in viste.items() if k in presenti}
     salva(STATO, viste)
     log("Primo avvio: segnate come già viste %d circolari." % len(items) if primo
-        else "Controllo fatto (versione %s). Circolari nuove: %d%s" % (
-            VERSIONE, nuove, ", non inviate: %d" % errori if errori else ""))
+        else "Controllo fatto. Circolari nuove: %d%s" % (nuove, ", non inviate: %d" % errori if errori else ""))
 
 
 def riprova_allegati(conf, s, it, viste, chiave, dal):
@@ -416,11 +429,18 @@ def cmd_allegati(conf, num):
     prova("dopo")
 
 
+COMANDI = ("run", "test", "invio", "credenziali", "ultima", "diagnosi", "recupera",
+           "sms", "prova-avviso", "allegati")
+
+
 def main():
     conf = carica(CONF, {})
-    cmd = sys.argv[1] if len(sys.argv) > 1 else "test"
-    if cmd != "run":  # nel run la versione è già nella riga "Controllo fatto" del log
-        print("cv.py versione " + VERSIONE)
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "aiuto"
+    print("cv.py versione " + VERSIONE)
+    print(RIGA, flush=True)
+    if cmd not in COMANDI:
+        print(AIUTO)
+        return
     if cmd == "credenziali" or not conf.get("user"):
         chiedi_credenziali(conf)
         if cmd == "credenziali":
@@ -458,7 +478,7 @@ def main():
         avvisa(conf, "Prova avviso circolari")
         print("Avviso di prova inviato.")
     else:
-        print(__doc__)
+        print(AIUTO)
 
 
 if __name__ == "__main__":
