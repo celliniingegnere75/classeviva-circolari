@@ -15,6 +15,8 @@ Comandi:
                          degli ultimi 3 giorni non ancora inviate se non indichi numeri
   python cv.py sms NUMERO   attiva l'SMS per ogni circolare nuova (sms off per disattivarlo)
   python cv.py prova-avviso manda una notifica (e un SMS se attivo) di prova
+  python cv.py allegati NUMERO  prova a scaricare gli allegati di una circolare e mostra
+                         cosa risponde ClasseViva (non invia nulla)
 """
 import base64
 import getpass
@@ -381,6 +383,34 @@ def cmd_recupera(conf, numeri):
         log("Recuperata: " + it.get("cntTitle", ""))
 
 
+def cmd_allegati(conf, num):
+    """Diagnosi: mostra i dati degli allegati e le risposte di ClasseViva, senza inviare."""
+    s = login(conf)
+    items = [it for it in bacheca(s) if numero(it) == num]
+    if not items:
+        raise SystemExit("Circolare %s non trovata in bacheca." % num)
+    it = items[0]
+    print("Circolare: %s" % it.get("cntTitle", ""))
+    print("Dati: evtCode=%s pubId=%s percorso=%s" % (it.get("evtCode"), it.get("pubId"), s["percorso"]))
+    for a in it.get("attachments") or []:
+        print("Allegato: " + json.dumps(a, ensure_ascii=False))
+
+    def prova(quando):
+        for i, a in enumerate(it.get("attachments") or []):
+            for percorso in ("teachers", "students"):
+                for n in sorted(set(str(x) for x in (a.get("attachNum") or (i + 1), i + 1, 101))):
+                    url = "%s/%s/%s/noticeboard/attach/%s/%s/%s" % (BASE, percorso, s["id"], it["evtCode"], it["pubId"], n)
+                    code, data = http("GET", url, s["h"], binary=True)
+                    info = "%d byte" % len(data) if code == 200 and isinstance(data, bytes) else str(data)[:120]
+                    print("  %s %s/%s -> %s %s" % (quando, percorso, n, code, info))
+
+    prova("prima")
+    url = "%s/%s/%s/noticeboard/read/%s/%s/101" % (BASE, s["percorso"], s["id"], it["evtCode"], it["pubId"])
+    code, body = http("POST", url, s["h"], {})
+    print("Apertura circolare -> %s %s" % (code, str(body)[:200]))
+    prova("dopo")
+
+
 def main():
     conf = carica(CONF, {})
     cmd = sys.argv[1] if len(sys.argv) > 1 else "test"
@@ -415,6 +445,8 @@ def main():
             conf.pop("sms", None)
             print("SMS disattivato.")
         salva(CONF, conf)
+    elif cmd == "allegati" and len(sys.argv) >= 3:
+        cmd_allegati(conf, sys.argv[2].strip())
     elif cmd == "prova-avviso":
         avvisa(conf, "Prova avviso circolari")
         print("Avviso di prova inviato.")
