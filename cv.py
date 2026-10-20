@@ -28,6 +28,8 @@ import urllib.request
 DIR = os.path.expanduser("~/.classeviva")
 CONF = os.path.join(DIR, "config.json")
 STATO = os.path.join(DIR, "viste.json")
+LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "log.txt")
+LOG_RIGHE = 500  # righe di log.txt da conservare
 BASE = "https://web.spaggiari.eu/rest/v1"
 HEADERS = {
     "User-Agent": "CVVS/std/4.2.3 Android/12",
@@ -38,6 +40,18 @@ HEADERS = {
 
 def log(msg):
     print(time.strftime("%Y-%m-%d %H:%M") + "  " + msg, flush=True)
+
+
+def accorcia_log():
+    """Tiene in log.txt solo le ultime LOG_RIGHE righe, così il file non cresce all'infinito."""
+    try:
+        with open(LOG, encoding="utf-8", errors="replace") as f:
+            righe = f.readlines()
+        if len(righe) > LOG_RIGHE:
+            with open(LOG, "w", encoding="utf-8") as f:
+                f.writelines(righe[-LOG_RIGHE:])
+    except OSError:
+        pass
 
 
 def carica(path, default):
@@ -346,6 +360,7 @@ def main():
     if cmd == "test":
         cmd_test(conf)
     elif cmd == "run":
+        accorcia_log()
         cmd_run(conf)
     elif cmd == "invio":
         if len(sys.argv) >= 4:
