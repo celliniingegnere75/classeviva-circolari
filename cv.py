@@ -25,7 +25,7 @@ import time
 import urllib.error
 import urllib.request
 
-VERSIONE = "1.1.1"  # da incrementare a ogni modifica: si vede all'avvio di ogni comando
+VERSIONE = "1.1.2"  # da incrementare a ogni modifica: si vede all'avvio di ogni comando
 RIGA = "*************"
 AIUTO = """programma per Termux su Android. Legge la bacheca ClasseViva, scarica le circolari nuove ed invia gli allegati per mail.
 %s
@@ -390,11 +390,13 @@ def cmd_recupera(conf, numeri):
         return
     for chiave, it in scelte:
         try:
-            invia(conf, prepara(s, it))
+            circ = prepara(s, it)
+            invia(conf, circ)
         except Exception as e:
             log("NON inviata: %s -> %s" % (it.get("cntTitle", ""), e))
             continue
-        viste[chiave] = 1
+        # se manca un allegato, run lo riprova e lo manda appena ClasseViva lo rende disponibile
+        viste[chiave] = time.time() if mancanti(circ, it) > 0 else 1
         salva(STATO, viste)
         log("Recuperata: " + it.get("cntTitle", ""))
 
@@ -405,9 +407,17 @@ def cmd_allegati(conf, num):
     items = [it for it in bacheca(s) if numero(it) == num]
     if not items:
         raise SystemExit("Circolare %s non trovata in bacheca." % num)
-    it = items[0]
+    if len(items) > 1:
+        print("Ci sono %d circolari con il numero %s: le controllo tutte." % (len(items), num))
+    for it in items:
+        diagnosi_allegati(s, it)
+
+
+def diagnosi_allegati(s, it):
+    print("")
     print("Circolare: %s" % it.get("cntTitle", ""))
-    print("Dati: evtCode=%s pubId=%s percorso=%s" % (it.get("evtCode"), it.get("pubId"), s["percorso"]))
+    print("Dati: evtCode=%s pubId=%s percorso=%s data=%s" % (it.get("evtCode"), it.get("pubId"),
+                                                            s["percorso"], it.get("cntValidFrom", "")))
     for a in it.get("attachments") or []:
         print("Allegato: " + json.dumps(a, ensure_ascii=False))
 
