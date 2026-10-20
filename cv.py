@@ -201,7 +201,10 @@ def prepara(s, it):
 
 def segna_letta(s, it):
     url = "%s/%s/%s/noticeboard/read/%s/%s/101" % (BASE, s["percorso"], s["id"], it["evtCode"], it["pubId"])
-    http("POST", url, s["h"], {})
+    # ClasseViva vuole {"join": false}: con un corpo vuoto risponde 400 e non segna la lettura
+    code, body = http("POST", url, s["h"], {"join": False})
+    if code != 200:
+        log("Apertura circolare non riuscita (%s): %s" % (code, str(body)[:150]))
 
 
 # ---------------- Invio ----------------
@@ -406,7 +409,7 @@ def cmd_allegati(conf, num):
 
     prova("prima")
     url = "%s/%s/%s/noticeboard/read/%s/%s/101" % (BASE, s["percorso"], s["id"], it["evtCode"], it["pubId"])
-    code, body = http("POST", url, s["h"], {})
+    code, body = http("POST", url, s["h"], {"join": False})
     print("Apertura circolare -> %s %s" % (code, str(body)[:200]))
     prova("dopo")
 
