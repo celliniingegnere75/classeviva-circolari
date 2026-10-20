@@ -113,13 +113,14 @@ def bacheca(s):
 
 
 def allegati(s, it, tentativi=1):
-    """Scarica gli allegati. Con più tentativi, quelli non ancora disponibili si riprovano
-    a distanza di PAUSA_ALLEGATI secondi (ClasseViva a volte li pubblica poco dopo la circolare)."""
+    """Scarica gli allegati. ClasseViva spesso li rende scaricabili solo dopo che la circolare
+    è stata aperta: se ne manca qualcuno la si apre (come dall'app) e si riprova subito.
+    Con più tentativi, quelli ancora mancanti si riprovano ogni PAUSA_ALLEGATI secondi."""
     elenco = list(enumerate(it.get("attachments") or []))
     presi = {}
-    for t in range(tentativi):
-        if t:
-            time.sleep(PAUSA_ALLEGATI)
+    codici = {}
+
+    def scarica():
         for i, a in elenco:
             if i in presi:
                 continue
@@ -129,10 +130,24 @@ def allegati(s, it, tentativi=1):
             if code == 200 and isinstance(data, bytes):
                 presi[i] = {"nome": a.get("fileName") or "allegato_%d.pdf" % (i + 1),
                             "base64": base64.b64encode(data).decode()}
-            elif t == tentativi - 1:
-                log("Allegato non scaricato (%s): %s" % (code, a.get("fileName", "")))
+            else:
+                codici[i] = code
+
+    for t in range(tentativi):
+        if t:
+            time.sleep(PAUSA_ALLEGATI)
+        scarica()
+        if t == 0 and len(presi) < len(elenco):
+            try:
+                segna_letta(s, it)
+            except Exception as e:
+                log("Apertura circolare non riuscita: %s" % e)
+            scarica()
         if len(presi) == len(elenco):
             break
+    for i, a in elenco:
+        if i not in presi:
+            log("Allegato non scaricato (%s): %s" % (codici.get(i), a.get("fileName", "")))
     return [presi[i] for i, _ in elenco if i in presi]
 
 
