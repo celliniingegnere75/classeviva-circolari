@@ -264,6 +264,10 @@ def cmd_run(conf):
             avvisa(conf, circ["titolo"])
         except Exception as e:
             log("Avviso non riuscito: %s" % e)
+    if items:
+        # dimentica le circolari uscite dalla bacheca, così viste.json non cresce all'infinito
+        presenti = set("%s_%s" % (it.get("evtCode"), it.get("pubId")) for it in items)
+        viste = {k: v for k, v in viste.items() if k in presenti}
     salva(STATO, viste)
     log("Primo avvio: segnate come già viste %d circolari." % len(items) if primo
         else "Controllo fatto. Circolari nuove: %d%s" % (nuove, ", non inviate: %d" % errori if errori else ""))
