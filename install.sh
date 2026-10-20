@@ -12,9 +12,17 @@ echo "== Scarico lo script =="
 mkdir -p "$DIR"
 curl -fsSL "$REPO/cv.py" -o "$DIR/cv.py"
 
-echo "== Pianifico il controllo ogni 2 ore =="
-( crontab -l 2>/dev/null | grep -v 'classeviva/cv.py' ; \
-  echo "0 */2 * * * python $DIR/cv.py run >> $DIR/log.txt 2>&1" ) | crontab -
+if crontab -l 2>/dev/null | grep -q 'classeviva/cv.py'; then
+  echo "== Pianificazione già presente: la lascio com'è =="
+else
+  echo "== Pianifico il controllo (lun-sab, due volte al giorno) =="
+  CMD="python $DIR/cv.py run >> $DIR/log.txt 2>&1"
+  ( crontab -l 2>/dev/null ; \
+    echo "48 7 * * 1,3,5 $CMD" ; \
+    echo "9 14 * * 1,3,5 $CMD" ; \
+    echo "14 7 * * 2,4,6 $CMD" ; \
+    echo "52 13 * * 2,4,6 $CMD" ) | crontab -
+fi
 
 echo "== Avvio automatico all'accensione del telefono (serve Termux:Boot) =="
 mkdir -p "$HOME/.termux/boot"

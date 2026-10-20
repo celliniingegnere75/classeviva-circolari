@@ -1,6 +1,6 @@
 # classeviva-circolari
 
-Script che gira su un telefono Android (Termux): ogni 2 ore legge la bacheca ClasseViva,
+Script che gira su un telefono Android (Termux): due volte al giorno, dal lunedì al sabato, legge la bacheca ClasseViva,
 scarica le circolari nuove con gli allegati e le invia a un ricevitore Google Apps Script,
 che le manda per mail.
 
