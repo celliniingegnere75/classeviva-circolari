@@ -27,6 +27,7 @@ import time
 import urllib.error
 import urllib.request
 
+VERSIONE = "2026-10-20.4"  # aggiornarla a ogni modifica: si vede all'avvio e nel log
 DIR = os.path.expanduser("~/.classeviva")
 CONF = os.path.join(DIR, "config.json")
 STATO = os.path.join(DIR, "viste.json")
@@ -302,7 +303,8 @@ def cmd_run(conf):
         viste = {k: v for k, v in viste.items() if k in presenti}
     salva(STATO, viste)
     log("Primo avvio: segnate come già viste %d circolari." % len(items) if primo
-        else "Controllo fatto. Circolari nuove: %d%s" % (nuove, ", non inviate: %d" % errori if errori else ""))
+        else "Controllo fatto (versione %s). Circolari nuove: %d%s" % (
+            VERSIONE, nuove, ", non inviate: %d" % errori if errori else ""))
 
 
 def riprova_allegati(conf, s, it, viste, chiave, dal):
@@ -417,6 +419,8 @@ def cmd_allegati(conf, num):
 def main():
     conf = carica(CONF, {})
     cmd = sys.argv[1] if len(sys.argv) > 1 else "test"
+    if cmd != "run":  # nel run la versione è già nella riga "Controllo fatto" del log
+        print("cv.py versione " + VERSIONE)
     if cmd == "credenziali" or not conf.get("user"):
         chiedi_credenziali(conf)
         if cmd == "credenziali":
