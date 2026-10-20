@@ -25,7 +25,7 @@ import time
 import urllib.error
 import urllib.request
 
-VERSIONE = "1.1.2"  # da incrementare a ogni modifica: si vede all'avvio di ogni comando
+VERSIONE = "1.1.3"  # da incrementare a ogni modifica: si vede all'avvio di ogni comando
 RIGA = "*************"
 AIUTO = """programma per Termux su Android. Legge la bacheca ClasseViva, scarica le circolari nuove ed invia gli allegati per mail.
 %s
@@ -147,8 +147,12 @@ def allegati(s, it, tentativi=1):
                             "base64": base64.b64encode(data).decode()}
             else:
                 codici[i] = code
+                if RITIRATA in str(data):
+                    it["_ritirata"] = True
 
     for t in range(tentativi):
+        if it.get("_ritirata"):
+            break
         if t:
             time.sleep(PAUSA_ALLEGATI)
         scarica()
@@ -160,6 +164,8 @@ def allegati(s, it, tentativi=1):
             scarica()
         if len(presi) == len(elenco):
             break
+    if it.get("_ritirata"):
+        return []
     for i, a in elenco:
         if i not in presi:
             log("Allegato non scaricato (%s): %s" % (codici.get(i), a.get("fileName", "")))
@@ -168,6 +174,7 @@ def allegati(s, it, tentativi=1):
 
 AZIONI = (("needSign", "conferma e firma"), ("needReply", "risposta"),
           ("needFile", "caricamento di un file"))
+RITIRATA = "no more active"  # risposta di ClasseViva per una circolare ritirata dalla scuola
 ATTESA_ALLEGATI = 48 * 3600  # per quanto si riprova a scaricare un allegato non ancora disponibile
 TENTATIVI_ALLEGATI = 3  # alla prima lettura: 3 tentativi nell'arco di 4 secondi...
 PAUSA_ALLEGATI = 2      # ...a 0, 2 e 4 secondi, prima di inviare la circolare senza allegato
@@ -292,6 +299,10 @@ def cmd_run(conf):
             continue
         try:
             circ = prepara(s, it)
+            if it.get("_ritirata"):
+                viste[chiave] = 1
+                log("Ritirata dalla scuola, non inviata: " + it.get("cntTitle", ""))
+                continue
             invia(conf, circ)
         except Exception as e:
             # una circolare che non parte non deve bloccare le altre: si riprova al prossimo controllo
@@ -321,6 +332,10 @@ def cmd_run(conf):
 def riprova_allegati(conf, s, it, viste, chiave, dal):
     scaricati = allegati(s, it)
     titolo = it.get("cntTitle", "Circolare")
+    if it.get("_ritirata"):
+        viste[chiave] = 1
+        log("Ritirata dalla scuola, allegato non più disponibile: " + titolo)
+        return
     if len(scaricati) < len(it.get("attachments") or []):
         if time.time() - dal > ATTESA_ALLEGATI:
             viste[chiave] = 1
@@ -391,6 +406,11 @@ def cmd_recupera(conf, numeri):
     for chiave, it in scelte:
         try:
             circ = prepara(s, it)
+            if it.get("_ritirata"):
+                viste[chiave] = 1
+                salva(STATO, viste)
+                log("Ritirata dalla scuola, non inviata: " + it.get("cntTitle", ""))
+                continue
             invia(conf, circ)
         except Exception as e:
             log("NON inviata: %s -> %s" % (it.get("cntTitle", ""), e))
