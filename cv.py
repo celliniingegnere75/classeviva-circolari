@@ -10,6 +10,9 @@ Comandi:
   python cv.py invio     imposta indirizzo e codice del ricevitore Apps Script
   python cv.py credenziali  reimposta utente e password ClasseViva
   python cv.py ultima    invia subito l'ultima circolare (prova completa)
+  python cv.py diagnosi  mostra le ultime circolari con firma richiesta e stato di invio
+  python cv.py recupera [NUMERI]  invia le circolari indicate (es. 251 252), o quelle
+                         degli ultimi 3 giorni non ancora inviate se non indichi numeri
   python cv.py sms NUMERO   attiva l'SMS per ogni circolare nuova (sms off per disattivarlo)
   python cv.py prova-avviso manda una notifica (e un SMS se attivo) di prova
 """
@@ -109,6 +112,43 @@ def allegati(s, it):
     return out
 
 
+AZIONI = (("needSign", "conferma e firma"), ("needJoin", "adesione"),
+          ("needReply", "risposta"), ("needFile", "caricamento di un file"))
+
+
+def azioni(it):
+    """Azioni richieste dalla circolare (es. "Conferma e firma" sull'app)."""
+    return [nome for campo, nome in AZIONI if it.get(campo)]
+
+
+def numero(it):
+    titolo = (it.get("cntTitle") or "").strip()
+    n = titolo.split(" ", 1)[0].split("-", 1)[0].strip()
+    return n if n.isdigit() else ""
+
+
+def prepara(s, it):
+    testo = it.get("cntText", "") or ""
+    allegati_ok = allegati(s, it)
+    note = []
+    richieste = azioni(it)
+    if richieste:
+        note.append("AZIONE RICHIESTA su ClasseViva: " + ", ".join(richieste) + ".")
+    attesi = len(it.get("attachments") or [])
+    if attesi > len(allegati_ok):
+        note.append("Allegati non scaricati: %d su %d (aprili dall'app ClasseViva%s)."
+                    % (attesi - len(allegati_ok), attesi, ", dopo la conferma" if richieste else ""))
+    if note:
+        testo = "\n".join(note) + ("\n\n" + testo if testo else "")
+    return {
+        "titolo": it.get("cntTitle", "Circolare"),
+        "data": it.get("cntValidFrom", ""),
+        "categoria": it.get("cntCategory", ""),
+        "testo": testo,
+        "allegati": allegati_ok,
+    }
+
+
 def segna_letta(s, it):
     url = "%s/%s/%s/noticeboard/read/%s/%s/101" % (BASE, s["percorso"], s["id"], it["evtCode"], it["pubId"])
     http("POST", url, s["h"], {})
@@ -171,33 +211,36 @@ def cmd_run(conf):
     s = login(conf)
     items = bacheca(s)
     nuove = 0
+    errori = 0
     for it in items:
         chiave = "%s_%s" % (it.get("evtCode"), it.get("pubId"))
-        if chiave in viste:
+        if viste.get(chiave) == 1:
             continue
         if primo:
             viste[chiave] = 1
             continue
-        segna_letta(s, it)
-        circ = {
-            "titolo": it.get("cntTitle", "Circolare"),
-            "data": it.get("cntValidFrom", ""),
-            "categoria": it.get("cntCategory", ""),
-            "testo": it.get("cntText", "") or "",
-            "allegati": allegati(s, it),
-        }
-        invia(conf, circ)
+        try:
+            circ = prepara(s, it)
+            invia(conf, circ)
+        except Exception as e:
+            # una circolare che non parte non deve bloccare le altre: si riprova al prossimo controllo
+            errori += 1
+            log("NON inviata (si riprova): %s -> %s" % (it.get("cntTitle", ""), e))
+            continue
         viste[chiave] = 1
         salva(STATO, viste)
         nuove += 1
-        log("Inviata: " + circ["titolo"])
+        log("Inviata: " + circ["titolo"] + (" [richiede: %s]" % ", ".join(azioni(it)) if azioni(it) else ""))
+        # le circolari da firmare restano "da leggere" sull'app, così si vede che c'è da confermare
+        if not azioni(it):
+            segna_letta(s, it)
         try:
             avvisa(conf, circ["titolo"])
         except Exception as e:
             log("Avviso non riuscito: %s" % e)
     salva(STATO, viste)
     log("Primo avvio: segnate come già viste %d circolari." % len(items) if primo
-        else "Controllo fatto. Circolari nuove: %d" % nuove)
+        else "Controllo fatto. Circolari nuove: %d%s" % (nuove, ", non inviate: %d" % errori if errori else ""))
 
 
 def cmd_ultima(conf):
@@ -209,15 +252,51 @@ def cmd_ultima(conf):
     if not items:
         raise SystemExit("Bacheca vuota.")
     it = items[0]
-    circ = {
-        "titolo": it.get("cntTitle", "Circolare"),
-        "data": it.get("cntValidFrom", ""),
-        "categoria": it.get("cntCategory", ""),
-        "testo": it.get("cntText", "") or "",
-        "allegati": allegati(s, it),
-    }
+    circ = prepara(s, it)
     invia(conf, circ)
     log("Inviata di prova: %s (allegati: %d)" % (circ["titolo"], len(circ["allegati"])))
+
+
+def cmd_diagnosi(conf):
+    viste = carica(STATO, {}) or {}
+    s = login(conf)
+    items = bacheca(s)
+    log("Bacheca: %d circolari. Ultime 15:" % len(items))
+    for it in items[:15]:
+        chiave = "%s_%s" % (it.get("evtCode"), it.get("pubId"))
+        stato = "inviata" if viste.get(chiave) == 1 else "NON inviata"
+        print("  %-11s | %s | allegati %d | %s | %s" % (
+            stato, it.get("cntValidFrom", ""), len(it.get("attachments") or []),
+            ", ".join(azioni(it)) or "-", (it.get("cntTitle") or "")[:60]))
+
+
+def cmd_recupera(conf, numeri):
+    if not conf.get("endpoint"):
+        raise SystemExit("Manca il ricevitore: esegui prima  python cv.py invio")
+    viste = carica(STATO, {}) or {}
+    s = login(conf)
+    items = bacheca(s)
+    limite = time.strftime("%Y-%m-%d", time.localtime(time.time() - 3 * 86400))
+    scelte = []
+    for it in items:
+        chiave = "%s_%s" % (it.get("evtCode"), it.get("pubId"))
+        if numeri:
+            if numero(it) in numeri:
+                scelte.append((chiave, it))
+        elif viste.get(chiave) != 1 and (it.get("cntValidFrom") or "") >= limite:
+            scelte.append((chiave, it))
+    if not scelte:
+        log("Nessuna circolare da recuperare.")
+        return
+    for chiave, it in scelte:
+        try:
+            invia(conf, prepara(s, it))
+        except Exception as e:
+            log("NON inviata: %s -> %s" % (it.get("cntTitle", ""), e))
+            continue
+        viste[chiave] = 1
+        salva(STATO, viste)
+        log("Recuperata: " + it.get("cntTitle", ""))
 
 
 def main():
@@ -241,6 +320,10 @@ def main():
         print("Ricevitore salvato.")
     elif cmd == "ultima":
         cmd_ultima(conf)
+    elif cmd == "diagnosi":
+        cmd_diagnosi(conf)
+    elif cmd == "recupera":
+        cmd_recupera(conf, [n.strip() for n in sys.argv[2:] if n.strip()])
     elif cmd == "sms":
         if len(sys.argv) >= 3 and sys.argv[2].strip().lower() != "off":
             conf["sms"] = sys.argv[2].strip()
