@@ -154,8 +154,8 @@ def allegati(s, it, tentativi=1):
 AZIONI = (("needSign", "conferma e firma"), ("needReply", "risposta"),
           ("needFile", "caricamento di un file"))
 ATTESA_ALLEGATI = 48 * 3600  # per quanto si riprova a scaricare un allegato non ancora disponibile
-TENTATIVI_ALLEGATI = 3  # alla prima lettura: 3 tentativi nell'arco di 20 secondi...
-PAUSA_ALLEGATI = 10     # ...a 0, 10 e 20 secondi, prima di inviare la circolare senza allegato
+TENTATIVI_ALLEGATI = 3  # alla prima lettura: 3 tentativi nell'arco di 4 secondi...
+PAUSA_ALLEGATI = 2      # ...a 0, 2 e 4 secondi, prima di inviare la circolare senza allegato
 
 
 def azioni(it):
