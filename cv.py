@@ -112,13 +112,18 @@ def allegati(s, it):
     return out
 
 
-AZIONI = (("needSign", "conferma e firma"), ("needJoin", "adesione"),
-          ("needReply", "risposta"), ("needFile", "caricamento di un file"))
+AZIONI = (("needSign", "conferma e firma"), ("needReply", "risposta"),
+          ("needFile", "caricamento di un file"))
+ATTESA_ALLEGATI = 48 * 3600  # per quanto si riprova a scaricare un allegato non ancora disponibile
 
 
 def azioni(it):
     """Azioni richieste dalla circolare (es. "Conferma e firma" sull'app)."""
     return [nome for campo, nome in AZIONI if it.get(campo)]
+
+
+def mancanti(circ, it):
+    return len(it.get("attachments") or []) - len(circ["allegati"])
 
 
 def numero(it):
@@ -134,10 +139,12 @@ def prepara(s, it):
     richieste = azioni(it)
     if richieste:
         note.append("AZIONE RICHIESTA su ClasseViva: " + ", ".join(richieste) + ".")
+    if it.get("needJoin"):
+        note.append("Sull'app è possibile aderire (pulsante Aderisci).")
     attesi = len(it.get("attachments") or [])
     if attesi > len(allegati_ok):
-        note.append("Allegati non scaricati: %d su %d (aprili dall'app ClasseViva%s)."
-                    % (attesi - len(allegati_ok), attesi, ", dopo la conferma" if richieste else ""))
+        note.append("Allegati non ancora disponibili: %d su %d. Arriveranno con una mail "
+                    "successiva appena ClasseViva li rende scaricabili." % (attesi - len(allegati_ok), attesi))
     if note:
         testo = "\n".join(note) + ("\n\n" + testo if testo else "")
     return {
@@ -214,7 +221,12 @@ def cmd_run(conf):
     errori = 0
     for it in items:
         chiave = "%s_%s" % (it.get("evtCode"), it.get("pubId"))
-        if viste.get(chiave) == 1:
+        stato = viste.get(chiave)
+        if stato == 1:
+            continue
+        if stato:
+            # già inviata senza allegati (ClasseViva rispondeva 404): si riprova a scaricarli
+            riprova_allegati(conf, s, it, viste, chiave, stato)
             continue
         if primo:
             viste[chiave] = 1
@@ -227,7 +239,7 @@ def cmd_run(conf):
             errori += 1
             log("NON inviata (si riprova): %s -> %s" % (it.get("cntTitle", ""), e))
             continue
-        viste[chiave] = 1
+        viste[chiave] = time.time() if mancanti(circ, it) > 0 else 1
         salva(STATO, viste)
         nuove += 1
         log("Inviata: " + circ["titolo"] + (" [richiede: %s]" % ", ".join(azioni(it)) if azioni(it) else ""))
@@ -241,6 +253,30 @@ def cmd_run(conf):
     salva(STATO, viste)
     log("Primo avvio: segnate come già viste %d circolari." % len(items) if primo
         else "Controllo fatto. Circolari nuove: %d%s" % (nuove, ", non inviate: %d" % errori if errori else ""))
+
+
+def riprova_allegati(conf, s, it, viste, chiave, dal):
+    scaricati = allegati(s, it)
+    titolo = it.get("cntTitle", "Circolare")
+    if len(scaricati) < len(it.get("attachments") or []):
+        if time.time() - dal > ATTESA_ALLEGATI:
+            viste[chiave] = 1
+            log("Allegati ancora non disponibili dopo 48 ore, rinuncio: " + titolo)
+        return
+    try:
+        invia(conf, {
+            "titolo": "Allegato - " + titolo,
+            "data": it.get("cntValidFrom", ""),
+            "categoria": it.get("cntCategory", ""),
+            "testo": "Allegato della circolare inviata in precedenza senza documento.",
+            "allegati": scaricati,
+        })
+    except Exception as e:
+        log("Allegato NON inviato (si riprova): %s -> %s" % (titolo, e))
+        return
+    viste[chiave] = 1
+    salva(STATO, viste)
+    log("Inviato allegato: " + titolo)
 
 
 def cmd_ultima(conf):
@@ -264,10 +300,11 @@ def cmd_diagnosi(conf):
     log("Bacheca: %d circolari. Ultime 15:" % len(items))
     for it in items[:15]:
         chiave = "%s_%s" % (it.get("evtCode"), it.get("pubId"))
-        stato = "inviata" if viste.get(chiave) == 1 else "NON inviata"
+        v = viste.get(chiave)
+        stato = "inviata" if v == 1 else ("senza all." if v else "NON inviata")
         print("  %-11s | %s | allegati %d | %s | %s" % (
             stato, it.get("cntValidFrom", ""), len(it.get("attachments") or []),
-            ", ".join(azioni(it)) or "-", (it.get("cntTitle") or "")[:60]))
+            ", ".join(azioni(it) + (["adesione"] if it.get("needJoin") else [])) or "-", (it.get("cntTitle") or "")[:60]))
 
 
 def cmd_recupera(conf, numeri):
