@@ -93,7 +93,7 @@ class BachecaFragment : Fragment() {
             addView(vuoto)
         }
         val fab = ExtendedFloatingActionButton(ctx).apply {
-            text = "inoltra come email"
+            text = "invia email"
             setIconResource(android.R.drawable.ic_dialog_email)
             backgroundTintList = android.content.res.ColorStateList.valueOf(celeste)
             setTextColor(0xFFFFFFFF.toInt())
