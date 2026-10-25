@@ -50,6 +50,7 @@ class VotiScheda : Scheda() {
     private val memoria by lazy { requireContext().getSharedPreferences("voti_modificati", android.content.Context.MODE_PRIVATE) }
 
     override fun crea(savedInstanceState: Bundle?) {
+        memoria.edit().clear().apply() // copie locali delle versioni precedenti: non servono più
         primoGiorno = Scuola.primoGiorno(requireContext()) // poi si aggiorna con i periodi letti da classeviva
         val nome = intent.getStringExtra("nome") ?: ""
         tipo = intent.getStringExtra("tipo") ?: ""
@@ -282,18 +283,11 @@ class VotiScheda : Scheda() {
         setOnClickListener { apriVoto(v, mioId.isNotEmpty() && v.autore == mioId) }
     }
 
-    /** Valore, tipo, media, data e annotazioni modificati a mano restano sul telefono finché non si riescono a scrivere su classeviva. */
-    private fun modificato(v: Voto): Voto {
-        val valore = memoria.getString("${v.chiave}|valore", null) ?: v.valore
-        return v.copy(
-            valore = valore,
-            numero = numeroDa(valore) ?: v.numero,
-            tipo = memoria.getString("${v.chiave}|tipo", null) ?: v.tipo,
-            faMedia = memoria.getString("${v.chiave}|media", null)?.toBooleanStrictOrNull() ?: v.faMedia,
-            data = memoria.getString("${v.chiave}|data", null) ?: v.data,
-            nota = memoria.getString("${v.chiave}|nota", null) ?: v.nota
-        )
-    }
+    /**
+     * Si mostra sempre il voto com'è su classeviva: le modifiche non salvate non restano più sul telefono
+     * (le vecchie copie salvate dalle versioni precedenti vengono cancellate all'apertura).
+     */
+    private fun modificato(v: Voto): Voto = v
 
     private fun apriVoto(v: Voto, modificabile: Boolean) {
         val ctx = requireContext()
@@ -427,10 +421,6 @@ class VotiScheda : Scheda() {
                 addView(bottone("salva") {
                     val dataApi = scelta?.let { fApi.format(it) } ?: v.data
                     salvaSuClasseviva(v, valoreScelto, tipoScelto, mediaScelta, dataApi, nota.text.toString())
-                    memoria.edit().putString("${v.chiave}|valore", valoreScelto).putString("${v.chiave}|tipo", tipoScelto)
-                        .putString("${v.chiave}|media", mediaScelta.toString()).putString("${v.chiave}|data", dataApi)
-                        .putString("${v.chiave}|nota", nota.text.toString()).apply()
-                    mostra(elenco, tutti)
                     finestra.dismiss()
                 })
             }
@@ -474,15 +464,17 @@ class VotiScheda : Scheda() {
                 }
             }
             val (codice, risposta, dopo) = r.getOrElse {
-                android.widget.Toast.makeText(ctx, "non riuscito: ${it.message}; resta sul telefono", android.widget.Toast.LENGTH_LONG).show(); return@launch
+                android.widget.Toast.makeText(ctx, "non riuscito: ${it.message}; il voto non è stato modificato", android.widget.Toast.LENGTH_LONG).show(); return@launch
             }
             val tipoDopo = dopo?.let { runCatching { org.json.JSONObject(it).optString("componentDesc").lowercase() }.getOrNull() }
+            // si ricarica comunque: si vede quello che c'è davvero su classeviva
+            if (isAdded) carica()
             if (codice in 200..299 && (tipoDopo == null || tipoDopo == tipo)) {
                 android.widget.Toast.makeText(ctx, "salvato su classeviva", android.widget.Toast.LENGTH_LONG).show()
             } else {
                 // non accettato, o accettato ma il tipo non è cambiato: si può copiare tutto per sistemare la scrittura
                 val messaggio = if (codice in 200..299) "classeviva ha risposto ok, ma il voto risulta ancora \"$tipoDopo\" invece di \"$tipo\"."
-                    else "classeviva non ha accettato (http $codice); la modifica resta sul telefono."
+                    else "classeviva non ha accettato (http $codice): il voto non è stato modificato."
                 com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx).setMessage(messaggio)
                     .setNegativeButton("chiudi", null)
                     .setPositiveButton("copia la risposta") { _, _ ->
