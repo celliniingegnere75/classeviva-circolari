@@ -283,7 +283,8 @@ class ClasseViva(private val utente: String, private val password: String) {
         }
         if (data.isNotBlank()) o.put("evtDate", data)
         o.put("notesForFamily", nota)
-        val r = http("PUT", "$BASE/teachers/$id/evaluations/grades2", o)
+        // classeviva vuole un elenco: {"grades": [voto]} (412 "missing grades" con il voto da solo)
+        val r = http("PUT", "$BASE/teachers/$id/evaluations/grades2", JSONObject().put("grades", JSONArray().put(o)))
         return r.codice to r.testo
     }
 
@@ -345,7 +346,7 @@ class ClasseViva(private val utente: String, private val password: String) {
     /** Cancella un voto: la risposta è l'oggetto del voto così come l'ha dato classeviva. */
     fun cancellaVoto(grezzo: String): Pair<Int, String> {
         if (token.isEmpty()) login()
-        val r = http("DELETE", "$BASE/teachers/$id/evaluations/grades2", JSONObject(grezzo))
+        val r = http("DELETE", "$BASE/teachers/$id/evaluations/grades2", JSONObject().put("grades", JSONArray().put(JSONObject(grezzo))))
         return r.codice to r.testo
     }
 
