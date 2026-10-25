@@ -93,7 +93,7 @@ class BachecaFragment : Fragment() {
             addView(vuoto)
         }
         val fab = ExtendedFloatingActionButton(ctx).apply {
-            text = "controlla ed inoltra"
+            text = "inoltra come email"
             setIconResource(android.R.drawable.ic_dialog_email)
             backgroundTintList = android.content.res.ColorStateList.valueOf(celeste)
             setTextColor(0xFFFFFFFF.toInt())
@@ -108,7 +108,7 @@ class BachecaFragment : Fragment() {
         }
         radice.addView(colonna)
         radice.addView(fab, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-            android.view.Gravity.BOTTOM or android.view.Gravity.END).apply { setMargins(0, 0, ctx.dp(16), ctx.dp(16)) })
+            android.view.Gravity.BOTTOM or android.view.Gravity.END).apply { setMargins(0, 0, ctx.dp(16), ctx.dp(ALTEZZA_BARRA + ALZO_BARRA + SOMBRA_BARRA + 12)) }) // sopra la barra delle pagine
 
         tutte = leggiCache()
         mostra()
