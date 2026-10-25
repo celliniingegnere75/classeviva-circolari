@@ -1,0 +1,75 @@
+
+Welcome to Gradle 8.9!
+
+Here are the highlights of this release:
+ - Enhanced Error and Warning Messages
+ - IDE Integration Improvements
+ - Daemon JVM Information
+
+For more details see https://docs.gradle.org/8.9/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :classepiu:buildKotlinToolingMetadata
+> Task :classepiu:checkKotlinGradlePluginConfigurationErrors
+> Task :classepiu:preBuild UP-TO-DATE
+> Task :classepiu:preReleaseBuild UP-TO-DATE
+> Task :classepiu:generateReleaseBuildConfig
+> Task :classepiu:generateReleaseResValues
+> Task :classepiu:checkReleaseAarMetadata
+> Task :classepiu:mapReleaseSourceSetPaths
+> Task :classepiu:generateReleaseResources
+> Task :classepiu:packageReleaseResources
+> Task :classepiu:createReleaseCompatibleScreenManifests
+> Task :classepiu:extractDeepLinksRelease
+> Task :classepiu:parseReleaseLocalResources
+> Task :classepiu:mergeReleaseResources
+> Task :classepiu:processReleaseMainManifest
+> Task :classepiu:processReleaseManifest
+> Task :classepiu:javaPreCompileRelease
+> Task :classepiu:extractProguardFiles
+> Task :classepiu:mergeReleaseJniLibFolders
+> Task :classepiu:mergeReleaseNativeLibs NO-SOURCE
+> Task :classepiu:stripReleaseDebugSymbols NO-SOURCE
+> Task :classepiu:extractReleaseNativeSymbolTables NO-SOURCE
+> Task :classepiu:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :classepiu:processReleaseManifestForPackage
+> Task :classepiu:checkReleaseDuplicateClasses
+> Task :classepiu:desugarReleaseFileDependencies
+> Task :classepiu:mergeReleaseStartupProfile
+> Task :classepiu:processReleaseResources
+> Task :classepiu:mergeExtDexRelease
+> Task :classepiu:mergeReleaseArtProfile
+> Task :classepiu:mergeReleaseShaders
+> Task :classepiu:compileReleaseShaders NO-SOURCE
+> Task :classepiu:generateReleaseAssets UP-TO-DATE
+> Task :classepiu:mergeReleaseAssets
+> Task :classepiu:compressReleaseAssets
+> Task :classepiu:extractReleaseVersionControlInfo
+> Task :classepiu:collectReleaseDependencies
+> Task :classepiu:sdkReleaseDependencyData
+> Task :classepiu:validateSigningRelease
+> Task :classepiu:writeReleaseAppMetadata
+> Task :classepiu:writeReleaseSigningConfigVersions
+> Task :classepiu:optimizeReleaseResources
+> Task :classepiu:compileReleaseKotlin
+w: file:///home/runner/work/classeviva-circolari/classeviva-circolari/app/classepiu/src/main/java/it/cellini/classepiu/RegistroFragment.kt:182:36 Parameter 'forza' is never used
+
+> Task :classepiu:compileReleaseJavaWithJavac
+> Task :classepiu:generateReleaseLintVitalReportModel
+> Task :classepiu:dexBuilderRelease
+> Task :classepiu:mergeReleaseGlobalSynthetics
+> Task :classepiu:processReleaseJavaRes
+> Task :classepiu:mergeReleaseJavaResource
+> Task :classepiu:mergeDexRelease
+> Task :classepiu:compileReleaseArtProfile
+> Task :classepiu:packageRelease
+> Task :classepiu:createReleaseApkListingFileRedirect
+> Task :classepiu:lintVitalAnalyzeRelease
+> Task :classepiu:lintVitalReportRelease
+> Task :classepiu:lintVitalRelease
+> Task :classepiu:assembleRelease
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1792949422435.json
+
+BUILD SUCCESSFUL in 3m 12s
+48 actionable tasks: 48 executed
